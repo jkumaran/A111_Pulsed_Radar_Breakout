@@ -10,8 +10,9 @@
 #include "acc_driver_gpio_linux_sysfs.h"
 #include "acc_driver_spi_linux_spidev.h"
 #include "acc_log.h"
-#include "acc_os.h"
-#include "acc_os_linux.h"
+#include "acc_device_os.h"
+#include "acc_device_spi.h"
+#include "acc_driver_os_linux.h"
 
 
 /**
@@ -87,6 +88,9 @@ static const uint_fast8_t sensor_interrupt_pins[SENSOR_COUNT] = {
 	GPIO0_PIN
 };
 
+static acc_board_isr_t master_isr;
+
+static void isr_sensor1(void) {if (master_isr) master_isr(1);}
 
 /**
  * @brief Get the combined status of all sensors
@@ -344,6 +348,32 @@ bool acc_board_is_sensor_interrupt_active(acc_sensor_t sensor)
 	}
 
 	return value != 0;
+}
+
+acc_status_t acc_board_register_isr(acc_board_isr_t isr)
+{
+	acc_status_t status;
+
+	if (isr != NULL)
+	{
+		if (
+			(status = acc_device_gpio_register_isr(GPIO0_PIN, ACC_DEVICE_GPIO_EDGE_RISING, &isr_sensor1))
+		) {
+			return status;
+		}
+	}
+	else
+	{
+		if (
+			(status = acc_device_gpio_register_isr(GPIO0_PIN, ACC_DEVICE_GPIO_EDGE_NONE, NULL))
+		) {
+			return status;
+		}
+	}
+
+	master_isr = isr;
+
+	return ACC_STATUS_SUCCESS;
 }
 
 
